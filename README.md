@@ -6,10 +6,10 @@
 
 ## code detial
 ### main.py
-1. def get_message_size()
+1. def get_message_size():
 
 
-2. def split_data(data)
+2. def split_data(data):
 
 
 3. 
@@ -17,6 +17,7 @@
 5. 
 6. 
 7. 
+
 我们不会上交git hub库。
 但是readme.md也会被提交上去，作为代码的解释。
 所以我们可以在这里做代码编程的逻辑。
