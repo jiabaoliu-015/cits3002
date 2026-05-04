@@ -1,6 +1,6 @@
 import sys
 
-from config import max_segment_data_size
+from config import MAX_SEGMENT_DATA_SIZE
 
 def get_message_size():
     if len(sys.argv) != 2:
@@ -22,8 +22,8 @@ def get_message_size():
 def split_data(data):
     blocks = []
 
-    for i in range(0, len(data), max_segment_data_size):
-        block = data[i:i + max_segment_data_size]
+    for i in range(0, len(data), MAX_SEGMENT_DATA_SIZE):
+        block = data[i:i + MAX_SEGMENT_DATA_SIZE]
         blocks.append(block)
 
     return blocks
