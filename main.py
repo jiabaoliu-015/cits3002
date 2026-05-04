@@ -28,8 +28,6 @@ def split_data(data):
 
     return blocks
 
-
-
 def main():
     message_size = get_message_size()
     data = "A" * message_size
@@ -38,7 +36,7 @@ def main():
     print(f"Application message size: {message_size} bytes")
     print(f"Number of transport segments: {len(blocks)}")
 
-    for index, chunk in enumerate(blocks):
+    for index, blocks in enumerate(blocks):
         seq = index % 2
         print(f"Segment {index + 1}: data size={len(blocks)}, seq={seq}")
 
