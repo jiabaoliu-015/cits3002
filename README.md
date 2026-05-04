@@ -2,7 +2,7 @@
 
 ## Team Member
 1. jiabao liu student number: 23954936
-2. shuo li student number: placeholder
+2. shuo li student number: 24038633
 
 ## code detial
 ### main.py
