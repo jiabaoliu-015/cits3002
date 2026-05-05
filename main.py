@@ -1,6 +1,6 @@
 import sys
-
 from config import MAX_SEGMENT_DATA_SIZE
+from config import DATA, SRC_PORT, DST_PORT
 
 def get_message_size():
     if len(sys.argv) != 2:
@@ -32,12 +32,12 @@ def main():
     message_size = get_message_size()
     data = "A" * message_size
     blocks = split_data(data)
-
     print(f"Application message size: {message_size} bytes")
     print(f"Number of transport segments: {len(blocks)}")
 
     for index, blocks in enumerate(blocks):
         seq = index % 2
-        print(f"Segment {index + 1}: data size={len(blocks)}, seq={seq}")
+        print(f"=== Segment {index + 1}: data size={len(blocks)}, seq={seq} ===")
+        print(f"Host A: Layer 4: Data received from Application Layer. Data size={len(blocks)}")
 
 main()
