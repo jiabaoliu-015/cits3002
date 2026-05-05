@@ -53,10 +53,12 @@ def main():
 
         segment = create_data_segment(block, seq)
 
-        print(f"Debug: segment created = {segment}")
-        print(f"Debug: segment data size = {len(segment.data)}")
-        print(f"Debug: segment length = {segment.length}")
-        print(f"Debug: segment checksum = {segment.checksum}")
-        print(f"Debug: segment type = {segment.seg_type}")
-        print(f"Debug: segment seq = {segment.seq}")
+        if segment:
+            print("Host A: Layer 4: Checksum computed")
+            print(f"Debug: segment data size = {len(segment.data)}")
+            print(f"Debug: segment length = {segment.length}")
+            print(f"Debug: segment checksum = {segment.checksum}")
+            print(f"Debug: segment type = {segment.seg_type}")
+            print(f"Debug: segment seq = {segment.seq}")
+        
 main()
