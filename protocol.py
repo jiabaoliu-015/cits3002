@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 
-from config import SRC_PORT, DST_PORT, TRANSPORT_HEADER_SIZE, DATA, ACK
-
+from config import (
+    SRC_PORT,
+    DST_PORT,
+    TRANSPORT_HEADER_SIZE,
+    DATA,
+    ACK,
+)
 
 @dataclass
 class Segment:
@@ -64,3 +69,6 @@ def create_ack_segment(seq):
     segment.checksum = compute_checksum(segment)
 
     return segment
+
+
+        

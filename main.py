@@ -53,8 +53,9 @@ def main():
 
         segment = create_data_segment(block, seq)
 
-        if segment:
+        if segment is not None:
             print("Host A: Layer 4: Checksum computed")
+            print(f"Host A: Layer 4: Segment created by adding transport layer header (DATA, seq={seq}) (encapsulation)")
             print(f"Debug: segment data size = {len(segment.data)}")
             print(f"Debug: segment length = {segment.length}")
             print(f"Debug: segment checksum = {segment.checksum}")
