@@ -1,8 +1,9 @@
 import sys
 import random
 import string
-from config import MAX_SEGMENT_DATA_SIZE
-from protocol import create_data_segment
+from config import MAX_SEGMENT_DATA_SIZE, HOST_A_IP, HOST_B_IP,HOST_A_MAC
+from protocol import create_data_segment, create_ip_packet
+from devices import Host
 
 def get_message_size():
     if len(sys.argv) != 2:
@@ -43,6 +44,8 @@ def main():
     message_size = get_message_size()
     data = generate_random_data(message_size)
     blocks = split_data(data)
+    host_a = Host("Host A", HOST_A_IP, HOST_A_MAC)
+
     print(f"Application message size: {message_size} bytes")
     print(f"Number of transport segments: {len(blocks)}")
 
@@ -56,13 +59,14 @@ def main():
         if segment is not None:
             print("Host A: Layer 4: Checksum computed")
             print(f"Host A: Layer 4: Segment created by adding transport layer header (DATA, seq={seq}) (encapsulation)")
-            print(f"Debug: segment data size = {len(segment.data)}")
-            print(f"Debug: segment length = {segment.length}")
-            print(f"Debug: segment checksum = {segment.checksum}")
-            print(f"Debug: segment type = {segment.seg_type}")
-            print(f"Debug: segment seq = {segment.seq}")
+            packet = host_a.send_segment_to_network_layer(segment, HOST_B_IP)
         else:
             print("some wrong happen during the create data segment or checksum")
+        
+        
+
+        
+    
 
     
         

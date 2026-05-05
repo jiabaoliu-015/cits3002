@@ -4,6 +4,10 @@ from config import (
     SRC_PORT,
     DST_PORT,
     TRANSPORT_HEADER_SIZE,
+    NETWORK_HEADER_SIZE,
+    DEFAULT_TTL,
+    UDP_PROTOCOL,
+    ETH_TYPE_IPV4,
     DATA,
     ACK,
 )
@@ -38,6 +42,9 @@ def compute_checksum(segment):
 
     return checksum & 0xFFFF
 
+def verify_checksum(segment):
+    expected_checksum = compute_checksum(segment)
+    return segment.checksum == expected_checksum
 
 def create_data_segment(data, seq):
     segment = Segment(
@@ -70,5 +77,39 @@ def create_ack_segment(seq):
 
     return segment
 
+@dataclass
+class Packet:
+    src_ip: str
+    dst_ip: str
+    ttl: int
+    protocol: int
+    total_length: int
+    payload: Segment
 
+def create_ip_packet(src_ip, dst_ip, segment):
+    packet = Packet(
+        src_ip=src_ip,
+        dst_ip=dst_ip,
+        ttl=DEFAULT_TTL,
+        protocol=UDP_PROTOCOL,
+        total_length=NETWORK_HEADER_SIZE + segment.length,
+        payload=segment
+    )
+
+    return packet
         
+@dataclass
+class Frame:
+    dst_mac: str
+    src_mac: str
+    eth_type: int
+    payload: Packet
+
+def create_ethernet_frame(src_mac, dst_mac, packet):
+      frame = Frame(
+        dst_mac=dst_mac,
+        src_mac=src_mac,
+        eth_type=ETH_TYPE_IPV4,
+        payload=packet
+    )
+      return frame
