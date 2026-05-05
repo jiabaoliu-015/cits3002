@@ -1,6 +1,8 @@
 import sys
+import random
+import string
 from config import MAX_SEGMENT_DATA_SIZE
-from config import DATA, SRC_PORT, DST_PORT
+from protocol import create_data_segment
 
 def get_message_size():
     if len(sys.argv) != 2:
@@ -28,16 +30,33 @@ def split_data(data):
 
     return blocks
 
+def generate_random_data(size):
+    chars = string.ascii_letters + string.digits
+    data = ""
+
+    for _ in range(size):
+        data += random.choice(chars)
+
+    return data
+
 def main():
     message_size = get_message_size()
-    data = "A" * message_size
+    data = generate_random_data(message_size)
     blocks = split_data(data)
     print(f"Application message size: {message_size} bytes")
     print(f"Number of transport segments: {len(blocks)}")
 
-    for index, blocks in enumerate(blocks):
+    for index, block in enumerate(blocks):
         seq = index % 2
-        print(f"=== Segment {index + 1}: data size={len(blocks)}, seq={seq} ===")
-        print(f"Host A: Layer 4: Data received from Application Layer. Data size={len(blocks)}")
+        print(f"=== Segment {index + 1}: data size={len(block)}, seq={seq} ===")
+        print(f"Host A: Layer 4: Data received from Application Layer. Data size={len(block)}")
 
+        segment = create_data_segment(block, seq)
+
+        print(f"Debug: segment created = {segment}")
+        print(f"Debug: segment data size = {len(segment.data)}")
+        print(f"Debug: segment length = {segment.length}")
+        print(f"Debug: segment checksum = {segment.checksum}")
+        print(f"Debug: segment type = {segment.seg_type}")
+        print(f"Debug: segment seq = {segment.seq}")
 main()
