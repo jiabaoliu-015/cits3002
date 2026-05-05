@@ -26,10 +26,10 @@ def compute_checksum(segment):
     ]
 
     for value in fields:
-        checksum += value
+        checksum ^= value
 
     for char in segment.data:
-        checksum += ord(char)
+        checksum ^= ord(char)
 
     return checksum & 0xFFFF
 

@@ -60,5 +60,9 @@ def main():
             print(f"Debug: segment checksum = {segment.checksum}")
             print(f"Debug: segment type = {segment.seg_type}")
             print(f"Debug: segment seq = {segment.seq}")
+        else:
+            print("some wrong happen during the create data segment or checksum")
+
+    
         
 main()
