@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import struct
 
 from config import (
     SRC_PORT,
@@ -37,7 +36,6 @@ def split_data(data):
 
 
 def crc16(data):
-    
     crc = 0xFFFF
 
     for byte in data:
@@ -54,26 +52,9 @@ def crc16(data):
     return crc
 
 
-def pack_segment(segment, checksum_value=0):
-    data_bytes = segment.data.encode("utf-8")
-
-    packed_segment = struct.pack(
-        f"!HHHHBB{len(data_bytes)}s",
-        segment.src_port,
-        segment.dst_port,
-        segment.length,
-        checksum_value,
-        segment.seg_type,
-        segment.seq,
-        data_bytes
-    )
-
-    return packed_segment
-
-
 def compute_checksum(segment):
-    packed_segment = pack_segment(segment, checksum_value=0)
-    checksum = crc16(packed_segment)
+    data_bytes = segment.data.encode("utf-8")
+    checksum = crc16(data_bytes)
 
     return checksum & 0xFFFF
 
