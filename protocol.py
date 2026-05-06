@@ -8,6 +8,7 @@ from config import (
     DEFAULT_TTL,
     UDP_PROTOCOL,
     ETH_TYPE_IPV4,
+    MAX_SEGMENT_DATA_SIZE,
     DATA,
     ACK,
 )
@@ -22,6 +23,14 @@ class Segment:
     seq: int
     data: str
 
+def split_data(data):
+    blocks = []
+
+    for i in range(0, len(data), MAX_SEGMENT_DATA_SIZE):
+        block = data[i:i + MAX_SEGMENT_DATA_SIZE]
+        blocks.append(block)
+
+    return blocks
 
 def compute_checksum(segment):
     checksum = 0
@@ -41,10 +50,6 @@ def compute_checksum(segment):
         checksum ^= ord(char)
 
     return checksum & 0xFFFF
-
-def verify_checksum(segment):
-    expected_checksum = compute_checksum(segment)
-    return segment.checksum == expected_checksum
 
 def create_data_segment(data, seq):
     segment = Segment(
