@@ -1,17 +1,20 @@
-from protocol import split_data ,create_ip_packet ,create_data_segment
+from protocol import split_data, create_ip_packet, create_data_segment
+
 
 class Host:
     def __init__(self, name, ip, mac):
         self.name = name
         self.ip = ip
         self.mac = mac
-        
+
     def send_application_data(self, dst_ip, message_size):
         data = "A" * message_size
         blocks = split_data(data)
 
         print(f"Application message size: {message_size} bytes")
         print(f"Number of transport segments: {len(blocks)}")
+
+        packets = []
 
         for index, block in enumerate(blocks):
             seq = index % 2
@@ -26,7 +29,11 @@ class Host:
                 f"{self.name}: Layer 4: Segment created by adding transport layer header "
                 f"(DATA, seq={segment.seq}) (encapsulation)"
             )
-            print(f"{self.name}: Layer 4: Segment sent to Network Layer")
+
+            packet = self.send_segment_to_network_layer(segment, dst_ip)
+            packets.append(packet)
+
+        return packets
 
     def send_segment_to_network_layer(self, segment, dst_ip):
         print(f"{self.name}: Layer 4: Segment sent to Network Layer")
@@ -39,8 +46,8 @@ class Host:
         )
 
         return packet
-    
-    
+
+
 class Router:
     def __init__(self, name):
         self.name = name
