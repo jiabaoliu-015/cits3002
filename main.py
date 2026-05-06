@@ -3,6 +3,7 @@ import random
 import string
 from config import MAX_SEGMENT_DATA_SIZE
 from protocol import create_data_segment
+from devices import send_data_from_a_to_b
 
 def get_message_size():
     if len(sys.argv) != 2:
@@ -56,11 +57,11 @@ def main():
         if segment is not None:
             print("Host A: Layer 4: Checksum computed")
             print(f"Host A: Layer 4: Segment created by adding transport layer header (DATA, seq={seq}) (encapsulation)")
-            print(f"Debug: segment data size = {len(segment.data)}")
-            print(f"Debug: segment length = {segment.length}")
-            print(f"Debug: segment checksum = {segment.checksum}")
-            print(f"Debug: segment type = {segment.seg_type}")
-            print(f"Debug: segment seq = {segment.seq}")
+
+            ack_segment = send_data_from_a_to_b(segment)
+            if ack_segment is not None:
+                print(f"Debug: ACK segment created with seq={ack_segment.seq}")
+                
         else:
             print("some wrong happen during the create data segment or checksum")
 
