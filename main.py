@@ -29,5 +29,5 @@ def main():
     host_b = Host("Host B", HOST_B_IP, HOST_B_MAC)
     router = Router("Router R1")
     
-    host_a.send_application_data(HOST_B_IP, message_size)       
+    packets = host_a.send_application_data(HOST_B_IP, message_size)
 main()

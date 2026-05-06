@@ -13,6 +13,7 @@ from config import (
     ACK,
 )
 
+
 @dataclass
 class Segment:
     src_port: int
@@ -23,6 +24,7 @@ class Segment:
     seq: int
     data: str
 
+
 def split_data(data):
     blocks = []
 
@@ -32,30 +34,43 @@ def split_data(data):
 
     return blocks
 
+
+def crc16(data):
+    crc = 0xFFFF
+
+    for byte in data:
+        crc ^= byte << 8
+
+        for _ in range(8):
+            if crc & 0x8000:
+                crc = (crc << 1) ^ 0x1021
+            else:
+                crc = crc << 1
+
+            crc &= 0xFFFF
+
+    return crc
+
+
 def compute_checksum(segment):
-    checksum = 0
-
-    fields = [
-        segment.src_port,
-        segment.dst_port,
-        segment.length,
-        segment.seg_type,
-        segment.seq
-    ]
-
-    for value in fields:
-        checksum ^= value
-
-    for char in segment.data:
-        checksum ^= ord(char)
+    data_bytes = segment.data.encode("utf-8")
+    checksum = crc16(data_bytes)
 
     return checksum & 0xFFFF
+
+
+def verify_checksum(segment):
+    received_checksum = segment.checksum
+    recalculated_checksum = compute_checksum(segment)
+
+    return received_checksum == recalculated_checksum
+
 
 def create_data_segment(data, seq):
     segment = Segment(
         src_port=SRC_PORT,
         dst_port=DST_PORT,
-        length=TRANSPORT_HEADER_SIZE + len(data),
+        length=TRANSPORT_HEADER_SIZE + len(data.encode("utf-8")),
         checksum=0,
         seg_type=DATA,
         seq=seq,
@@ -82,6 +97,7 @@ def create_ack_segment(seq):
 
     return segment
 
+
 @dataclass
 class Packet:
     src_ip: str
@@ -90,6 +106,7 @@ class Packet:
     protocol: int
     total_length: int
     payload: Segment
+
 
 def create_ip_packet(src_ip, dst_ip, segment):
     packet = Packet(
@@ -102,7 +119,8 @@ def create_ip_packet(src_ip, dst_ip, segment):
     )
 
     return packet
-        
+
+
 @dataclass
 class Frame:
     dst_mac: str
@@ -110,11 +128,13 @@ class Frame:
     eth_type: int
     payload: Packet
 
+
 def create_ethernet_frame(src_mac, dst_mac, packet):
-      frame = Frame(
+    frame = Frame(
         dst_mac=dst_mac,
         src_mac=src_mac,
         eth_type=ETH_TYPE_IPV4,
         payload=packet
     )
-      return frame
+
+    return frame
