@@ -65,12 +65,16 @@ class Host:
         return packet, next_hop_ip
 
     def forward_packet_from_network_layer(self, packet):
+
+        dst_ip = packet.dst_ip
         print(f"{self.name}: Layer 3: Destination IP read: {packet.dst_ip}")
         print(f"{self.name}: Layer 3: Routing table lookup performed")
 
         next_hop_ip = self.lookup_next_hop_ip(packet.dst_ip)
 
         print(f"{self.name}: Layer 3: Next-hop IP determined: {next_hop_ip}")
+
+        
         print(f"{self.name}: Layer 3: Outgoing interface selected")
         print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
 
