@@ -44,8 +44,8 @@ class Host:
                 f"(DATA, seq={segment.seq}) (encapsulation)"
             )
 
-            packet = self.send_segment_to_network_layer(segment, dst_ip)
-            packets.append(packet)
+            packet, next_hop_ip = self.send_segment_to_network_layer(segment, dst_ip)
+            packets.append(packet, next_hop_ip)
 
         return packets
 
@@ -74,7 +74,7 @@ class Host:
 
         print(f"{self.name}: Layer 3: Next-hop IP determined: {next_hop_ip}")
 
-        
+
         print(f"{self.name}: Layer 3: Outgoing interface selected")
         print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
 
