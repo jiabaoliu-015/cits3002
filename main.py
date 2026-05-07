@@ -1,10 +1,9 @@
 import sys
-import random
-import string
-from config import MAX_SEGMENT_DATA_SIZE
-from protocol import create_data_segment
-from devices import send_data_from_a_to_b
 
+from config import HOST_A_IP,HOST_B_IP, HOST_A_MAC, HOST_B_MAC
+from devices import Host, Router
+
+    
 def get_message_size():
     if len(sys.argv) != 2:
         print("program input error. \nUsage: python3 main.py <message_size>")
@@ -22,49 +21,13 @@ def get_message_size():
     return message_size
 
 
-def split_data(data):
-    blocks = []
-
-    for i in range(0, len(data), MAX_SEGMENT_DATA_SIZE):
-        block = data[i:i + MAX_SEGMENT_DATA_SIZE]
-        blocks.append(block)
-
-    return blocks
-
-def generate_random_data(size):
-    chars = string.ascii_letters + string.digits
-    data = ""
-
-    for _ in range(size):
-        data += random.choice(chars)
-
-    return data
-
 def main():
+
     message_size = get_message_size()
-    data = generate_random_data(message_size)
-    blocks = split_data(data)
-    print(f"Application message size: {message_size} bytes")
-    print(f"Number of transport segments: {len(blocks)}")
 
-    for index, block in enumerate(blocks):
-        seq = index % 2
-        print(f"=== Segment {index + 1}: data size={len(block)}, seq={seq} ===")
-        print(f"Host A: Layer 4: Data received from Application Layer. Data size={len(block)}")
-
-        segment = create_data_segment(block, seq)
-
-        if segment is not None:
-            print("Host A: Layer 4: Checksum computed")
-            print(f"Host A: Layer 4: Segment created by adding transport layer header (DATA, seq={seq}) (encapsulation)")
-
-            ack_segment = send_data_from_a_to_b(segment)
-            if ack_segment is not None:
-                print(f"Debug: ACK segment created with seq={ack_segment.seq}")
-                
-        else:
-            print("some wrong happen during the create data segment or checksum")
-
+    host_a = Host("Host A", HOST_A_IP, HOST_A_MAC)
+    host_b = Host("Host B", HOST_B_IP, HOST_B_MAC)
+    router = Router("Router R1")
     
-        
+    packets, frames= host_a.send_application_data(HOST_B_IP, message_size)
 main()
