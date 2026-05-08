@@ -70,7 +70,7 @@ class Host:
 
 
     def send_segment_to_network_layer(self, segment, dst_ip):
-        print(f"{self.name}: Layer 4: Segment sent to Network Layer")
+        print(f"{self.name}: Layer 4: Segment sent to Network Layer\n")
 
         packet = create_ip_packet(self.ip, dst_ip, segment)
 
@@ -96,7 +96,7 @@ class Host:
         outgoing_interface = self.select_outgoing_interface(next_hop_ip)
 
         print(f"{self.name}: Layer 3: Outgoing interface selected")
-        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
+        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer\n")
 
         frame = self.send_packet_to_data_link_layer(packet, next_hop_ip, outgoing_interface)
 
