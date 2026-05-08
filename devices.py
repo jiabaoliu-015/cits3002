@@ -120,7 +120,7 @@ class Host:
 
         print(
             f"{self.name}: Layer 2: Destination MAC lookup for next-hop IP "
-            f"({next_hop_ip}) \u2192 {dst_mac}"
+            f"({next_hop_ip}) > {dst_mac}"
         )
 
         frame = create_ethernet_frame(
