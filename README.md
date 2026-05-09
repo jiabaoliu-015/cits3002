@@ -6,7 +6,7 @@
 
 ## code detial
 ### 1.main.py
-    The main.py is the entry point of the network simulator. It is used to reading the message size from the command line tester input. Create the network devices. Start the main mission is transmission from Host A to Host B through router. 
+The main.py is the entry point of the network simulator. It is used to reading the message size from the command line tester input. Create the network devices. Start the main mission is transmission from Host A to Host B through router. 
 
     ### main.py
 
