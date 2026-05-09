@@ -28,6 +28,10 @@ def main():
     host_a = Host("Host A", HOST_A_IP, HOST_A_MAC)
     host_b = Host("Host B", HOST_B_IP, HOST_B_MAC)
     router = Router("Router R1")
-    
+
     packets = host_a.send_application_data(HOST_B_IP, message_size)
+
+    for packet, next_hop_ip, frame in packets:
+        if frame is not None:
+            router.receive_frame(frame)
 main()

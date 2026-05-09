@@ -1,10 +1,15 @@
-from protocol import split_data, create_ip_packet, create_data_segment , create_ethernet_frame
+from protocol import (split_data, 
+                      create_ip_packet, 
+                      create_data_segment ,
+                      create_ethernet_frame)
+
 from config import (HOST_A_IP, 
                     HOST_B_IP, 
                     R1_IF1_IP, 
                     R1_IF2_IP, 
                     R1_IF1_MAC, 
-                    R1_IF2_MAC)
+                    R1_IF2_MAC,
+                    ETH_TYPE_IPV4,)
 
 class Host:
     def __init__(self, name, ip, mac):
@@ -70,7 +75,7 @@ class Host:
 
 
     def send_segment_to_network_layer(self, segment, dst_ip):
-        print(f"{self.name}: Layer 4: Segment sent to Network Layer")
+        print(f"{self.name}: Layer 4: Segment sent to Network Layer\n")
 
         packet = create_ip_packet(self.ip, dst_ip, segment)
 
@@ -96,7 +101,7 @@ class Host:
         outgoing_interface = self.select_outgoing_interface(next_hop_ip)
 
         print(f"{self.name}: Layer 3: Outgoing interface selected")
-        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
+        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer\n")
 
         frame = self.send_packet_to_data_link_layer(packet, next_hop_ip, outgoing_interface)
 
@@ -120,8 +125,12 @@ class Host:
 
         print(
             f"{self.name}: Layer 2: Destination MAC lookup for next-hop IP "
-            f"({next_hop_ip}) > {dst_mac}"
+            f"({next_hop_ip}) -> {dst_mac}"
         )
+
+        if dst_mac is None:
+            print(f"{self.name}: Layer 2: Frame not sent because destination MAC was not found")
+            return None
 
         frame = create_ethernet_frame(
             src_mac=outgoing_interface["mac"],
@@ -129,11 +138,15 @@ class Host:
             packet=packet
         )
 
+        if not self.validate_outgoing_frame(frame, outgoing_interface["mac"], dst_mac):
+            print(f"{self.name}: Layer 2: Frame not sent because frame validation failed")
+            return None
+
         print(
             f"{self.name}: Layer 2: Frame created: "
             f"SRC_MAC={frame.src_mac}, DST_MAC={frame.dst_mac}"
         )
-        print(f"{self.name}: Layer 2: Frame sent")
+        print(f"{self.name}: Layer 2: Frame sent\n")
 
         return frame
 
@@ -142,6 +155,44 @@ class Host:
             return self.mac_table[next_hop_ip]
 
         return None
+    
+    def validate_outgoing_frame(self, frame, expected_src_mac, expected_dst_mac):
+        if frame.src_mac != expected_src_mac:
+            return False
+
+        if frame.dst_mac != expected_dst_mac:
+            return False
+
+        if frame.eth_type != ETH_TYPE_IPV4:
+            return False
+
+        if frame.payload is None:
+            return False
+
+        return True
+    
+
 class Router:
     def __init__(self, name):
         self.name = name
+        self.interface_table = {
+            R1_IF1_MAC: "Interface 1",
+            R1_IF2_MAC: "Interface 2"
+        }
+
+    def receive_frame(self, frame):
+        incoming_interface = self.get_incoming_interface(frame)
+
+        if incoming_interface is None:
+            print(f"{self.name}: Layer 2: Frame dropped because destination MAC does not match router")
+            return None
+
+        print(f"{self.name}: Layer 2: Frame received on {incoming_interface}")
+
+        return frame
+
+    def get_incoming_interface(self, frame):
+        if frame.dst_mac in self.interface_table:
+            return self.interface_table[frame.dst_mac]
+
+        return None
