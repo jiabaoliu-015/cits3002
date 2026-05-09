@@ -133,7 +133,7 @@ class Host:
             f"{self.name}: Layer 2: Frame created: "
             f"SRC_MAC={frame.src_mac}, DST_MAC={frame.dst_mac}"
         )
-        print(f"{self.name}: Layer 2: Frame sent")
+        print(f"{self.name}: Layer 2: Frame sent \n")
 
         return frame
 
@@ -142,6 +142,8 @@ class Host:
             return self.mac_table[next_hop_ip]
 
         return None
+    
+
 class Router:
     def __init__(self, name):
         self.name = name
