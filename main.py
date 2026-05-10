@@ -22,7 +22,6 @@ def get_message_size():
 
 
 def main():
-
     message_size = get_message_size()
 
     host_a = Host("Host A", HOST_A_IP, HOST_A_MAC)
@@ -33,5 +32,21 @@ def main():
 
     for packet, next_hop_ip, frame in packets:
         if frame is not None:
-            router.receive_frame(frame)
+            forwarded_frame = router.receive_frame(frame)
+
+            if forwarded_frame is not None:
+                ack_segment = host_b.receive_frame(forwarded_frame)
+
+                if ack_segment is not None:
+                    ack_packet, ack_next_hop_ip, ack_frame = host_b.send_ack_segment(
+                        ack_segment,
+                        HOST_A_IP
+                    )
+
+                    if ack_frame is not None:
+                        returned_ack_frame = router.receive_frame(ack_frame)
+
+                        if returned_ack_frame is not None:
+                            host_a.receive_frame(returned_ack_frame)
+
 main()

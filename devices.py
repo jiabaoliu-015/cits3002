@@ -1,6 +1,7 @@
 from protocol import (split_data, 
                       create_ip_packet, 
                       create_data_segment ,
+                      create_ack_segment,
                       create_ethernet_frame,
                       verify_checksum)
 
@@ -10,6 +11,7 @@ from config import (HOST_A_IP,
                     R1_IF2_IP, 
                     R1_IF1_MAC, 
                     R1_IF2_MAC,
+                    HOST_A_MAC,
                     HOST_B_MAC,
                     ETH_TYPE_IPV4,)
 
@@ -20,6 +22,23 @@ class Host:
         self.mac = mac
         self.routing_table = self.create_routing_table()
         self.mac_table = self.create_mac_table()
+        self.expected_seq = 0
+        self.last_ack_seq = None    
+
+    def is_expected_data(self, segment):
+        return segment.seq == self.expected_seq
+
+
+    def update_expected_seq(self):
+        self.expected_seq = 1 - self.expected_seq
+
+
+    def create_ack_for_segment(self, segment):
+        return create_ack_segment(segment.seq)
+
+
+    def is_correct_ack(self, ack_segment, expected_seq):
+        return ack_segment.seq == expected_seq
         
     def create_routing_table(self):
         if self.ip == HOST_A_IP:
@@ -109,24 +128,65 @@ class Host:
             print(f"{self.name}: Layer 4: Checksum verified")
 
             if segment.seg_type == 0:
-                print(
-                    f"{self.name}: Layer 4: DATA segment delivered to Application Layer. "
-                    f"Data size={len(segment.data)}"
-                )
+                if self.is_expected_data(segment):
+                    print(
+                        f"{self.name}: Layer 4: DATA segment delivered to Application Layer. "
+                        f"Data size={len(segment.data)}"
+                    )
+
+                    ack_segment = self.create_ack_for_segment(segment)
+
+                    print(
+                        f"{self.name}: Layer 4: Segment created by adding transport layer header "
+                        f"(ACK, seq={ack_segment.seq})"
+                    )
+
+                    self.update_expected_seq()
+
+                    return ack_segment
+
+                else:
+                    print(
+                        f"{self.name}: Layer 4: Duplicate DATA segment detected. "
+                        f"Expected seq={self.expected_seq}, received seq={segment.seq}"
+                    )
+                    print(f"{self.name}: Layer 4: Duplicate segment not delivered to Application Layer")
+
+                    last_accepted_seq = 1 - self.expected_seq
+                    ack_segment = create_ack_segment(last_accepted_seq)
+
+                    print(f"{self.name}: Layer 4: Re-sending ACK with seq={ack_segment.seq}")
+
+                    return ack_segment
 
             elif segment.seg_type == 1:
                 print(f"{self.name}: Layer 4: ACK received: seq={segment.seq}")
+                self.last_ack_seq = segment.seq
+                return segment
 
         else:
             print(f"{self.name}: Layer 4: Segment discarded due to checksum error")
-
-        return segment
+            return None
 
 
     def send_segment_to_network_layer(self, segment, dst_ip):
         print(f"{self.name}: Layer 4: Segment sent to Network Layer\n")
 
         packet = create_ip_packet(self.ip, dst_ip, segment)
+
+        print(
+            f"{self.name}: Layer 3: Segment received from Transport Layer: "
+            f"SRC_IP={packet.src_ip}, DST_IP={packet.dst_ip}, TTL={packet.ttl}"
+        )
+
+        next_hop_ip, frame = self.forward_packet_from_network_layer(packet)
+
+        return packet, next_hop_ip, frame
+    
+    def send_ack_segment(self, ack_segment, dst_ip):
+        print(f"{self.name}: Layer 4: Segment sent to Network Layer\n")
+
+        packet = create_ip_packet(self.ip, dst_ip, ack_segment)
 
         print(
             f"{self.name}: Layer 3: Segment received from Transport Layer: "
@@ -229,6 +289,8 @@ class Router:
             R1_IF2_MAC: "Interface 2"
         }
 
+        self.learned_mac_table = {}
+
     def receive_frame(self, frame):
         incoming_interface = self.get_incoming_interface(frame)
 
@@ -246,19 +308,79 @@ class Router:
 
         return None
     
+    def learn_source_mac(self, src_mac, incoming_interface):
+        self.learned_mac_table[src_mac] = incoming_interface
+
+
+    def extract_packet_from_frame(self, frame):
+        if frame.eth_type != ETH_TYPE_IPV4:
+            print(f"{self.name}: Layer 2: Frame dropped because EtherType is not IPv4")
+            return None
+
+        if frame.payload is None:
+            print(f"{self.name}: Layer 2: Frame dropped because payload is missing")
+            return None
+
+        return frame.payload
+
+
+    def forward_packet_from_network_layer(self, packet):
+        print(
+            f"{self.name}: Layer 3: Packet received from Data Link Layer: "
+            f"SRC_IP={packet.src_ip}, DST_IP={packet.dst_ip}, TTL={packet.ttl}"
+        )
+
+        dst_ip = packet.dst_ip
+        print(f"{self.name}: Layer 3: Destination IP read: {dst_ip}")
+
+        if not self.decrement_ttl(packet):
+            return None
+
+        route = self.lookup_route(dst_ip)
+        print(f"{self.name}: Layer 3: Routing table lookup performed")
+
+        if route is None:
+            print(f"{self.name}: Layer 3: No route found. Packet dropped")
+            return None
+
+        next_hop_ip = route["next_hop_ip"]
+        print(f"{self.name}: Layer 3: Next-hop IP determined: {next_hop_ip}")
+
+        outgoing_interface = self.select_outgoing_interface(route)
+
+        if outgoing_interface is None:
+            print(f"{self.name}: Layer 3: No outgoing interface found. Packet dropped")
+            return None
+
+        print(f"{self.name}: Layer 3: Outgoing interface selected ({outgoing_interface['name']})")
+        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
+
+        new_frame = self.send_packet_to_data_link_layer(
+            packet,
+            next_hop_ip,
+            outgoing_interface
+        )
+
+        return new_frame
+    
     def create_routing_table(self):
         return {
             HOST_B_IP: {
                 "next_hop_ip": HOST_B_IP,
                 "outgoing_interface": "Interface 2",
                 "outgoing_mac": R1_IF2_MAC
+            },
+            HOST_A_IP: {
+                "next_hop_ip": HOST_A_IP,
+                "outgoing_interface": "Interface 1",
+                "outgoing_mac": R1_IF1_MAC
             }
         }
 
-
     def create_mac_table(self):
         return {
-            HOST_B_IP: HOST_B_MAC
+            HOST_B_IP: HOST_B_MAC,
+            HOST_A_IP: HOST_A_MAC
         }
 
 
@@ -351,46 +473,16 @@ class Router:
 
 
     def forward_frame(self, frame, incoming_interface):
+        self.learn_source_mac(frame.src_mac, incoming_interface)
         print(f"{self.name}: Layer 2: Source MAC learned: {frame.src_mac} on {incoming_interface}")
+
+        packet = self.extract_packet_from_frame(frame)
+
+        if packet is None:
+            return None
+
         print(f"{self.name}: Layer 2: Packet delivered to Network Layer")
 
-        packet = frame.payload
-
-        print(
-            f"{self.name}: Layer 3: Packet received from Data Link Layer: "
-            f"SRC_IP={packet.src_ip}, DST_IP={packet.dst_ip}, TTL={packet.ttl}"
-        )
-
-        dst_ip = packet.dst_ip
-        print(f"{self.name}: Layer 3: Destination IP read: {dst_ip}")
-
-        if not self.decrement_ttl(packet):
-            return None
-
-        print(f"{self.name}: Layer 3: Routing table lookup performed")
-
-        route = self.lookup_route(dst_ip)
-
-        if route is None:
-            print(f"{self.name}: Layer 3: No route found. Packet dropped")
-            return None
-
-        next_hop_ip = route["next_hop_ip"]
-        print(f"{self.name}: Layer 3: Next-hop IP determined: {next_hop_ip}")
-
-        outgoing_interface = self.select_outgoing_interface(route)
-
-        if outgoing_interface is None:
-            print(f"{self.name}: Layer 3: No outgoing interface found. Packet dropped")
-            return None
-
-        print(f"{self.name}: Layer 3: Outgoing interface selected ({outgoing_interface['name']})")
-        print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
-
-        new_frame = self.send_packet_to_data_link_layer(
-            packet,
-            next_hop_ip,
-            outgoing_interface
-        )
+        new_frame = self.forward_packet_from_network_layer(packet)
 
         return new_frame
