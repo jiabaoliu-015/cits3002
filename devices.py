@@ -246,6 +246,110 @@ class Router:
 
         return None
     
+    def create_routing_table(self):
+        return {
+            HOST_B_IP: {
+                "next_hop_ip": HOST_B_IP,
+                "outgoing_interface": "Interface 2",
+                "outgoing_mac": R1_IF2_MAC
+            }
+        }
+
+
+    def create_mac_table(self):
+        return {
+            HOST_B_IP: HOST_B_MAC
+        }
+
+
+    def lookup_route(self, dst_ip):
+        routing_table = self.create_routing_table()
+
+        if dst_ip in routing_table:
+            return routing_table[dst_ip]
+
+        return None
+
+
+    def lookup_mac_address(self, next_hop_ip):
+        mac_table = self.create_mac_table()
+
+        if next_hop_ip in mac_table:
+            return mac_table[next_hop_ip]
+
+        return None
+
+
+    def select_outgoing_interface(self, route):
+        return {
+            "name": route["outgoing_interface"],
+            "mac": route["outgoing_mac"]
+        }
+
+
+    def decrement_ttl(self, packet):
+        old_ttl = packet.ttl
+        packet.ttl -= 1
+
+        print(f"{self.name}: Layer 3: TTL decremented: {old_ttl} -> {packet.ttl}")
+
+        if packet.ttl <= 0:
+            print(f"{self.name}: Layer 3: Packet dropped because TTL expired")
+            return False
+
+        return True
+
+
+    def validate_outgoing_frame(self, frame, expected_src_mac, expected_dst_mac):
+        if frame.src_mac != expected_src_mac:
+            return False
+
+        if frame.dst_mac != expected_dst_mac:
+            return False
+
+        if frame.eth_type != ETH_TYPE_IPV4:
+            return False
+
+        if frame.payload is None:
+            return False
+
+        return True
+
+
+    def send_packet_to_data_link_layer(self, packet, next_hop_ip, outgoing_interface):
+        print(f"{self.name}: Layer 2: Packet received from Network Layer")
+
+        dst_mac = self.lookup_mac_address(next_hop_ip)
+
+        print(
+            f"{self.name}: Layer 2: Destination MAC lookup for next-hop IP "
+            f"({next_hop_ip}) -> {dst_mac}"
+        )
+
+        if dst_mac is None:
+            print(f"{self.name}: Layer 2: Frame not sent because destination MAC was not found")
+            return None
+
+        frame = create_ethernet_frame(
+            src_mac=outgoing_interface["mac"],
+            dst_mac=dst_mac,
+            packet=packet
+        )
+
+        if not self.validate_outgoing_frame(frame, outgoing_interface["mac"], dst_mac):
+            print(f"{self.name}: Layer 2: Frame not sent because frame validation failed")
+            return None
+
+        print(
+            f"{self.name}: Layer 2: Frame created: "
+            f"SRC_MAC={frame.src_mac}, DST_MAC={frame.dst_mac}"
+        )
+
+        print(f"{self.name}: Layer 2: Frame forwarded on {outgoing_interface['name']}")
+
+        return frame
+
+
     def forward_frame(self, frame, incoming_interface):
         print(f"{self.name}: Layer 2: Source MAC learned: {frame.src_mac} on {incoming_interface}")
         print(f"{self.name}: Layer 2: Packet delivered to Network Layer")
@@ -257,51 +361,36 @@ class Router:
             f"SRC_IP={packet.src_ip}, DST_IP={packet.dst_ip}, TTL={packet.ttl}"
         )
 
-        print(f"{self.name}: Layer 3: Destination IP read: {packet.dst_ip}")
+        dst_ip = packet.dst_ip
+        print(f"{self.name}: Layer 3: Destination IP read: {dst_ip}")
 
-        old_ttl = packet.ttl
-        packet.ttl -= 1
-
-        print(f"{self.name}: Layer 3: TTL decremented: {old_ttl} -> {packet.ttl}")
-
-        if packet.ttl <= 0:
-            print(f"{self.name}: Layer 3: Packet dropped because TTL expired")
+        if not self.decrement_ttl(packet):
             return None
 
         print(f"{self.name}: Layer 3: Routing table lookup performed")
 
-        if packet.dst_ip == HOST_B_IP:
-            next_hop_ip = HOST_B_IP
-            outgoing_interface = "Interface 2"
-            src_mac = R1_IF2_MAC
-            dst_mac = HOST_B_MAC
-        else:
+        route = self.lookup_route(dst_ip)
+
+        if route is None:
             print(f"{self.name}: Layer 3: No route found. Packet dropped")
             return None
 
+        next_hop_ip = route["next_hop_ip"]
         print(f"{self.name}: Layer 3: Next-hop IP determined: {next_hop_ip}")
-        print(f"{self.name}: Layer 3: Outgoing interface selected ({outgoing_interface})")
+
+        outgoing_interface = self.select_outgoing_interface(route)
+
+        if outgoing_interface is None:
+            print(f"{self.name}: Layer 3: No outgoing interface found. Packet dropped")
+            return None
+
+        print(f"{self.name}: Layer 3: Outgoing interface selected ({outgoing_interface['name']})")
         print(f"{self.name}: Layer 3: Packet forwarded to Data Link Layer")
-        print(f"{self.name}: Layer 2: Packet received from Network Layer")
-        print(
-            f"{self.name}: Layer 2: Destination MAC lookup for next-hop IP "
-            f"({next_hop_ip}) -> {dst_mac}"
+
+        new_frame = self.send_packet_to_data_link_layer(
+            packet,
+            next_hop_ip,
+            outgoing_interface
         )
-
-        new_frame = create_ethernet_frame(
-            src_mac=src_mac,
-            dst_mac=dst_mac,
-            packet=packet
-        )
-
-        print(
-            f"{self.name}: Layer 2: Frame created: "
-            f"SRC_MAC={new_frame.src_mac}, DST_MAC={new_frame.dst_mac}"
-        )
-
-        print(f"{self.name}: Layer 2: Frame forwarded on {outgoing_interface}")
-
-        host_b = Host("Host B", HOST_B_IP, HOST_B_MAC)
-        host_b.receive_frame(new_frame)
 
         return new_frame
