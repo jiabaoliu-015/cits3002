@@ -16,8 +16,6 @@ from config import (HOST_A_IP,
                     ETH_TYPE_IPV4,)
 
 class Host:
-    host_by_mac = {}
-    host_by_ip = {}
 
     def __init__(self, name, ip, mac):
         self.name = name
@@ -28,8 +26,6 @@ class Host:
         self.expected_seq = 0
         self.last_ack_seq = None
 
-        Host.host_by_mac[self.mac] = self
-        Host.host_by_ip[self.ip] = self
 
     def is_expected_data(self, segment):
         return segment.seq == self.expected_seq
@@ -43,8 +39,8 @@ class Host:
         return create_ack_segment(segment.seq)
 
 
-    def is_correct_ack(self, ack_segment, expected_seq):
-        return ack_segment.seq == expected_seq
+    def is_correct_ack(self, received_ack_seq, expected_seq):
+        return received_ack_seq == expected_seq
         
     def create_routing_table(self):
         if self.ip == HOST_A_IP:
@@ -93,9 +89,37 @@ class Host:
                 f"(DATA, seq={segment.seq}) (encapsulation)"
             )
 
-            packet, next_hop_ip, frame = self.send_segment_to_network_layer(segment, dst_ip)
+            while True:
+                # Clear old ACK before sending the current DATA segment.
+                # This prevents the sender from accidentally using an ACK from an earlier segment.
+                self.last_ack_seq = None
 
-            yield packet, next_hop_ip, frame
+                packet, next_hop_ip, frame = self.send_segment_to_network_layer(segment, dst_ip)
+
+                yield packet, next_hop_ip, frame
+
+                # After yield, main.py has passed the frame to Router R1.
+                # If Host A receives an ACK, receive_frame() will update self.last_ack_seq.
+                if self.last_ack_seq is None:
+                    print(
+                        f"{self.name}: Layer 4: No ACK received for DATA seq={seq}. "
+                        f"Retransmitting current segment"
+                    )
+                    continue
+
+                if self.is_correct_ack(self.last_ack_seq, seq):
+                    print(f"{self.name}: Layer 4: Correct ACK received for DATA seq={seq}")
+                    break
+
+                print(
+                    f"{self.name}: Layer 4: Incorrect or duplicate ACK received: "
+                    f"expected seq={seq}, received seq={self.last_ack_seq}"
+                )
+                print(
+                f"{self.name}: Layer 4: Retransmitting DATA segment due to incorrect ACK "
+                f"(seq={segment.seq})"
+                )
+        
     
     def receive_frame(self, frame):
         print(f"{self.name}: Layer 2: Frame received")
@@ -142,7 +166,9 @@ class Host:
                     print(
                         f"{self.name}: Layer 4: Segment created by adding transport layer header "
                         f"(ACK, seq={ack_segment.seq})"
-                    )
+                        )
+
+                    self.last_ack_seq = ack_segment.seq
 
                     self.update_expected_seq()
 
@@ -158,6 +184,8 @@ class Host:
                     last_accepted_seq = 1 - self.expected_seq
                     ack_segment = create_ack_segment(last_accepted_seq)
 
+                    self.last_ack_seq = ack_segment.seq
+
                     print(f"{self.name}: Layer 4: Re-sending ACK with seq={ack_segment.seq}")
 
                     return ack_segment
@@ -169,6 +197,17 @@ class Host:
 
         else:
             print(f"{self.name}: Layer 4: Segment discarded due to checksum error")
+            
+            if self.last_ack_seq is not None:
+                ack_segment = create_ack_segment(self.last_ack_seq)
+
+                print(
+                    f"{self.name}: Layer 4: Re-sending last ACK with seq={ack_segment.seq}"
+                )
+
+                return ack_segment
+
+            print(f"{self.name}: Layer 4: No previous ACK available")
             return None
 
 
@@ -287,12 +326,22 @@ class Host:
 class Router:
     def __init__(self, name):
         self.name = name
+
         self.interface_table = {
             R1_IF1_MAC: "Interface 1",
             R1_IF2_MAC: "Interface 2"
         }
 
+        self.interface_mac_table = {
+            "Interface 1": R1_IF1_MAC,
+            "Interface 2": R1_IF2_MAC
+        }
+
+        self.connected_hosts_by_mac = {}
         self.learned_mac_table = {}
+
+    def connect_host(self, host):
+        self.connected_hosts_by_mac[host.mac] = host
 
     def receive_frame(self, frame):
         incoming_interface = self.get_incoming_interface(frame)
@@ -339,7 +388,7 @@ class Router:
         if frame is None:
             return None, None
 
-        host = Host.host_by_mac.get(frame.dst_mac)
+        host = self.connected_hosts_by_mac.get(frame.dst_mac)
 
         if host is None:
             print(f"{self.name}: Layer 2: Frame could not be delivered to any connected host")
@@ -352,6 +401,11 @@ class Router:
     def learn_source_mac(self, src_mac, incoming_interface):
         self.learned_mac_table[src_mac] = incoming_interface
 
+    def lookup_learned_interface(self, dst_mac):
+        if dst_mac in self.learned_mac_table:
+            return self.learned_mac_table[dst_mac]
+
+        return None
 
     def extract_packet_from_frame(self, frame):
         if frame.eth_type != ETH_TYPE_IPV4:
@@ -487,17 +541,36 @@ class Router:
         print(
             f"{self.name}: Layer 2: Destination MAC lookup for next-hop IP "
             f"({next_hop_ip}) → {dst_mac}"
-        )
+            )   
 
         if dst_mac is None:
             print(f"{self.name}: Layer 2: Frame not sent because destination MAC was not found")
             return None
 
+        learned_interface = self.lookup_learned_interface(dst_mac)
+
+        if learned_interface is not None:
+            print(
+            f"{self.name}: Layer 2: Learned MAC table used: "
+            f"{dst_mac} is on {learned_interface}"
+                )
+
+            outgoing_interface = {
+            "name": learned_interface,
+            "mac": self.interface_mac_table[learned_interface]
+            }
+
+        else:
+            print(
+            f"{self.name}: Layer 2: Destination MAC not found in learned MAC table; "
+            f"using routing-selected interface {outgoing_interface['name']}"
+        )
+
         frame = create_ethernet_frame(
             src_mac=outgoing_interface["mac"],
             dst_mac=dst_mac,
             packet=packet
-        )
+            )
 
         if not self.validate_outgoing_frame(frame, outgoing_interface["mac"], dst_mac):
             print(f"{self.name}: Layer 2: Frame not sent because frame validation failed")

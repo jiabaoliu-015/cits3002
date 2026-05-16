@@ -29,9 +29,16 @@ def main():
     host_b = Host("Host B", HOST_B_IP, HOST_B_MAC)
     router = Router("Router R1")
 
+    router.connect_host(host_a)
+    router.connect_host(host_b)
+    
     packets = host_a.send_application_data(HOST_B_IP, message_size)
 
     for packet, next_hop_ip, frame in packets:
         if frame is not None:
             router.receive_frame(frame)
-main()
+
+
+
+if __name__ == "__main__":
+    main()
