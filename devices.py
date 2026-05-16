@@ -26,6 +26,8 @@ class Host:
         self.expected_seq = 0
         self.last_ack_seq = None
 
+        self.received_application_data = ""
+
 
     def is_expected_data(self, segment):
         return segment.seq == self.expected_seq
@@ -160,7 +162,7 @@ class Host:
                         f"{self.name}: Layer 4: DATA segment delivered to Application Layer. "
                         f"Data size={len(segment.data)}"
                     )
-
+                    self.received_application_data += segment.data
                     ack_segment = self.create_ack_for_segment(segment)
 
                     print(
